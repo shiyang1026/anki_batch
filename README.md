@@ -44,3 +44,4 @@ python main.py
 出现如下结果代表运行成功
 
 ![image](./example_img/example_1.png)
+![image](./example_img/example_2.png)

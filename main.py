@@ -1,6 +1,7 @@
 import os
 import requests
 import config
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from my_decorator import time_cal
 
@@ -10,7 +11,7 @@ DECK_NAME = config.deck_name  # 牌组名
 
 
 def invoke(session: requests.Session, action: str, params: dict) -> dict:
-    """ "
+    """
     向anki connect 发送请求
     """
     return session.post(
@@ -30,7 +31,7 @@ def check_anki_connect(session: requests.Session) -> None:
             print(f"AnkiConnect 连接失败: {response['error']}")
     except requests.exceptions.ConnectionError:
         print("AnkiConnect 连接失败，请确保Anki正在运行并启用了AnkiConnect插件。")
-        exit()
+        sys.exit(1)
 
 
 def create_deck(session: requests.Session, deck_name: str) -> None:
@@ -44,23 +45,25 @@ def create_deck(session: requests.Session, deck_name: str) -> None:
         print(f"创建牌组失败: {result['error']}")
 
 
-def add_note_to_anki(session: requests.Session, deck_name: str, image_file_name: str) -> None:
+def add_note_to_anki(
+    session: requests.Session, deck_name: str, image_file_name: str
+) -> None:
     note = {
         "deckName": deck_name,
         "modelName": "Basic",
         "fields": {
-            "Front": f"<img src='{image_file_name}'>", # 只显示图片作为问题
-            "Back": "", # 答案为空
-            "options": {"allowDuplicate": False},
-            "tags": ["confusing_points"],
-            "picture": [
-                {
-                    "filename": image_file_name,
-                    "path": os.path.join(IMAGE_PATH, image_file_name),
-                    "fields": ["Front"],  # 图片应用于卡片的正面
-                }
-            ],
+            "Front": f"<img src='{image_file_name}'>",  # 只显示图片作为问题
+            "Back": "",  # 答案为空
         },
+        "options": {"allowDuplicate": False},
+        "tags": ["confusing_points"],
+        "picture": [
+            {
+                "filename": image_file_name,
+                "path": os.path.join(IMAGE_PATH, image_file_name),
+                "fields": ["Front"],  # 图片应用于卡片的正面
+            }
+        ],
     }
     result = invoke(session, "addNote", {"note": note})
     if result.get("error") is None:
@@ -68,17 +71,28 @@ def add_note_to_anki(session: requests.Session, deck_name: str, image_file_name:
     else:
         print(f"添加卡片失败: {result['error']}")
 
-def import_image_to_anki(session: requests.Session, deck_name: str, image_file_name: str):
+
+def import_image_to_anki(
+    session: requests.Session, deck_name: str, image_directory: str
+):
     """
     导入图片到anki牌组
     """
     with ThreadPoolExecutor() as executor:
         futures = []
-        for file_name in os.listdir(image_file_name):
-            if file_name.endswith(".jpg") or file_name.endswith(".png"):
-                futures.append(executor.submit(add_note_to_anki, session, deck_name, file_name))
-        for future in futures:
-            future.result()
+        try:
+            for image_file_name in os.listdir(image_directory):
+                if image_file_name.endswith(".jpg") or image_file_name.endswith(".png"):
+                    futures.append(
+                        executor.submit(
+                            add_note_to_anki, session, deck_name, image_file_name
+                        )
+                    )
+            for future in futures:
+                future.result()
+        except OSError as e:
+            print(f"读取目录时出错: {e}")
+            sys.exit(1)
 
 
 @time_cal
