@@ -45,41 +45,51 @@ def create_deck(session: requests.Session, deck_name: str) -> None:
         else f"创建牌组失败: {result['error']}"
     )
 
+
+def check_template(session: requests.Session, template_name: str) -> None:
+    """
+    检查anki中存不存在Baisc模板,不存在创建一个
+    """
+
     result = invoke(session, "modelNames", {})
     if result.get("error") is not None:
         print(f"获取模板名失败: {result['error']}")
         sys.exit(1)
 
-    if "Basic" not in result["result"]:
-        result = invoke(
-            session,
-            "createModel",
-            {
-                "modelName": "Basic",
-                "inOrderFields": ["Front", "Back"],
-                "css": """
-                .card {
-                    font-family: arial;
-                    font-size: 20px;
-                    text-align: center;
-                    color: black;
-                    background-color: white;
+    if "Basic" in result["result"]:
+        print(f"模板 {template_name} 已存在, 继续导入")
+        return
+
+    # 模板不存在, 创建模板
+    result = invoke(
+        session,
+        "createModel",
+        {
+            "modelName": "Basic",
+            "inOrderFields": ["Front", "Back"],
+            "css": """
+        .card {
+            font-family: arial;
+            font-size: 20px;
+            text-align: center;
+            color: black;
+            background-color: white;
+        }
+        """,
+            "cardTemplates": [
+                {
+                    "Name": "Card 1",
+                    "Front": "{{Front}}",
+                    "Back": "{{FrontSide}}<hr id='answer'>{{Back}}",
                 }
-                """,
-                "cardTemplates": [
-                    {
-                        "Name": "Card 1",
-                        "Front": "{{Front}}",
-                        "Back": "{{FrontSide}}<hr id='answer'>{{Back}}",
-                    }
-                ],
-            },
-        )
-        print(
-            "成功创建模板: Basic"
-            if result.get("error") is None
-            else f"创建模板失败: {result['error']}"
-        )
+            ],
+        },
+    )
+    print(
+        "成功创建模板: Basic"
+        if result.get("error") is None
+        else f"创建模板失败: {result['error']}"
+    )
 
 
 def add_note_to_anki(
@@ -137,6 +147,7 @@ def main() -> None:
     with requests.Session() as session:
         check_anki_connect(session)
         create_deck(session, DECK_NAME)
+        check_template(session, "Basic")
         import_image_to_anki(session, DECK_NAME, IMAGE_PATH)
 
 
