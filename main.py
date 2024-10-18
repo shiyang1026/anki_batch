@@ -39,10 +39,47 @@ def create_deck(session: requests.Session, deck_name: str) -> None:
     创建新的牌组
     """
     result = invoke(session, "createDeck", {"deck": deck_name})
-    if result.get("error") is None:
-        print(f"成功创建牌组: {deck_name}")
-    else:
-        print(f"创建牌组失败: {result['error']}")
+    print(
+        f"成功创建牌组: {deck_name}"
+        if result.get("error") is None
+        else f"创建牌组失败: {result['error']}"
+    )
+
+    result = invoke(session, "modelNames", {})
+    if result.get("error") is not None:
+        print(f"获取模板名失败: {result['error']}")
+        sys.exit(1)
+
+    if "Basic" not in result["result"]:
+        result = invoke(
+            session,
+            "createModel",
+            {
+                "modelName": "Basic",
+                "inOrderFields": ["Front", "Back"],
+                "css": """
+                .card {
+                    font-family: arial;
+                    font-size: 20px;
+                    text-align: center;
+                    color: black;
+                    background-color: white;
+                }
+                """,
+                "cardTemplates": [
+                    {
+                        "Name": "Card 1",
+                        "Front": "{{Front}}",
+                        "Back": "{{FrontSide}}<hr id='answer'>{{Back}}",
+                    }
+                ],
+            },
+        )
+        print(
+            "成功创建模板: Basic"
+            if result.get("error") is None
+            else f"创建模板失败: {result['error']}"
+        )
 
 
 def add_note_to_anki(
